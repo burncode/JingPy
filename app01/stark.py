@@ -1,27 +1,19 @@
 from django.shortcuts import HttpResponse
-from django.utils.safestring import mark_safe
+from django.conf.urls import url
+from django.forms import ModelForm
 from stark.service import router
 from app01 import models
 
 
 class UserInfoConfig(router.StarkConfig):
-    def checkbox(self, obj=None, is_header=False):
-        if is_header:
-            return '选择'
-        return mark_safe('<input type="checkbox" name="pk" value="%s" />' % (obj.id,))
-
-    def edit(self, obj=None, is_header=False):
-        if is_header:
-            return '编辑'
-        return mark_safe('<a href="/edit/%s">编辑</a>' % (obj.id,))
-
-    list_display = [checkbox, 'id', 'name', edit]
+    list_display = ['id', 'name']
 
 
 router.site.register(models.UserInfo, UserInfoConfig)
 
+
 class RoleConfig(router.StarkConfig):
-    list_display = ['name', ]
+    list_display = ['id', 'name']
 
 
 router.site.register(models.Role, RoleConfig)  # StarkConfig(Role)
@@ -32,3 +24,60 @@ class UserTypeConfig(router.StarkConfig):
 
 
 router.site.register(models.UserType, UserTypeConfig)  # StarkConfig(Role)
+
+
+
+
+class HostModelForm(ModelForm):
+    class Meta:
+        model = models.Host
+        fields = ['id','hostname','ip','port']
+        error_messages = {
+            'hostname':{
+                'required':'主机名不能为空',
+            },
+            'ip':{
+                'required': 'IP不能为空',
+                'invalid': 'IP格式错误',
+            }
+
+        }
+
+
+
+
+class HostConfig(router.StarkConfig):
+    def ip_port(self,obj=None,is_header=False):
+        if is_header:
+            return '自定义列'
+        return "%s:%s" %(obj.ip,obj.port,)
+
+    list_display = ['id','hostname','ip','port',ip_port]
+    # get_list_display
+
+    show_add_btn = True
+    # get_show_add_btn
+
+    model_form_class = HostModelForm
+    # get_model_form_class
+
+
+    def extra_url(self):
+        urls = [
+            url('^report/$',self.report_view)
+        ]
+        return urls
+
+    def report_view(self,request):
+        return HttpResponse('自定义报表')
+
+    def delete_view(self,request,nid,*args,**kwargs):
+        if request.method == "GET":
+            return render(request,'my_delete.html')
+        else:
+            self.model_class.objects.filter(pk=nid).delete()
+            return redirect(self.get_list_url())
+
+
+router.site.register(models.Host,HostConfig)
+

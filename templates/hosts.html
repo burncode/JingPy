@@ -3,41 +3,38 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Title</title>
     <link rel="stylesheet" href="{% static "stark/bootstrap/css/bootstrap.css" %}"/>
+
     <style>
+        body{margin-top: 50px}
+        .pager a {
+            display: inline-block;
+            padding: 2px 8px;
+            margin: 0 5px;
+            border: 1px solid cadetblue;
+        }
+
         .pager .active {
             background-color: #369;
             color: white;
         }
-        
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>列表页面</h1>
-    <div>
-        {% if get_show_btn %}
-            <a class="btn btn-primary" href="{{ add_url }}">添加</a>
-        {% endif %}
-    </div>
-    <table class="table table-bordered">
+    <table class="table table-bordered table-hover">
         <thead>
         <tr>
-            {% for item in head_list %}
-                <th>{{ item }}</th>
-            {% endfor %}
+            <th>主机名</th>
+            <th>操作</th>
         </tr>
         </thead>
         <tbody>
-        {% for obj in data_list %}
+        {% for obj in host_list %}
             <tr>
-                {% for col in obj %}
-                    <td>{{ col }}</td>
-                    {#                    <td>?{{ list_condition }}</td>#}
-                {% endfor %}
+                <td>{{ obj }} </td>
+                <td><a href="/edit/54/?{{ list_condition }}">编辑</a></td>
             </tr>
         {% endfor %}
         </tbody>
@@ -50,5 +47,6 @@
         </nav>
     </div>
 </div>
+
 </body>
 </html>

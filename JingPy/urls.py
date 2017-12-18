@@ -17,7 +17,13 @@ from django.conf.urls import url
 from django.contrib import admin
 
 from stark.service import router
+from paging import views
+
 urlpatterns = [
     # url(r'^admin/', admin.site.urls),
     url(r'^stark/', router.site.urls),
+    url(r'^hosts/', views.hosts),
+    url(r'^user/', views.user),
+    url(r'^edit/(\d+)/', views.edit_host),
+
 ]

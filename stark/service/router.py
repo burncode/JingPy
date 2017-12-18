@@ -2,7 +2,8 @@ from django.conf.urls import url, include
 from django.utils.safestring import mark_safe
 from django.shortcuts import HttpResponse, render, redirect
 from django.urls import reverse
-
+from page.pager import Pagination
+from django.http import QueryDict
 
 class StarkConfig(object):
     def checkbox(self, obj=None, is_header=False):
@@ -10,7 +11,9 @@ class StarkConfig(object):
             return '选择'
         return mark_safe('<input type="checkbox" name="pk" value="%s" />' % (obj.id,))
 
-    def edit(self, obj=None, is_header=False):
+
+    def edit(self, obj=None, is_header=False,):
+        #添加URL一个参数
         if is_header:
             return '操作'
         return mark_safe('<a href="%s">编辑</a>' % (self.get_chang_url(obj.id),))
@@ -36,7 +39,8 @@ class StarkConfig(object):
     def get_show_btn(self):
         return self.show_add_btn
 
-    model_form_class=None
+    model_form_class = None
+
     def get_model_form_class(self):
         if self.model_form_class:
             return self.model_form_class
@@ -46,12 +50,10 @@ class StarkConfig(object):
         #     class Meta:
         #         model = self.model_class
         #         fields = "__all__"
-        #type创建类
-        meta = type('Meta',(object,),{'model':self.model_class,'fields':'__all__'})
-        AddModelForm = type('AddModelForm',(ModelForm,),{'Meta':meta})
+        # type创建类
+        meta = type('Meta', (object,), {'model': self.model_class, 'fields': '__all__'})
+        AddModelForm = type('AddModelForm', (ModelForm,), {'Meta': meta})
         return AddModelForm
-
-
 
     def __init__(self, model_class, site):
         self.model_class = model_class
@@ -76,6 +78,7 @@ class StarkConfig(object):
         return self.get_urls()
 
     def get_list_url(self):
+        #添加一个参数
         name = "stark:%s_%s_changlist" % (self.model_class._meta.app_label, self.model_class._meta.model_name)
         edit_url = reverse(name)
         return edit_url
@@ -110,7 +113,6 @@ class StarkConfig(object):
         data_list = self.model_class.objects.all()
         new_data_list = []
         for row in data_list:
-
             temp = []
             for field_name in self.get_list_display():
                 if isinstance(field_name, str):
@@ -120,9 +122,18 @@ class StarkConfig(object):
                 temp.append(val)
             new_data_list.append(temp)
 
+        pager_obj = Pagination(request.GET.get('page', 1), len(new_data_list), request.path_info, request.GET)
+        new_data_list = new_data_list[pager_obj.start:pager_obj.end]
+        html = pager_obj.page_html()
+        params = QueryDict(mutable=True)
+        params['_list_filter'] = request.GET.urlencode()
+        list_condition = params.urlencode()
+
         return render(request, 'changelist.html',
                       {'data_list': new_data_list, 'head_list': head_list, 'add_url': self.get_add_url(),
-                       'get_show_btn': self.get_show_btn()})
+                       'get_show_btn': self.get_show_btn(), "page_html": html,
+                       'list_condition': list_condition})
+
 
     def add_view(self, request, *args, **kwargs):
         from django.forms import ModelForm
@@ -146,22 +157,23 @@ class StarkConfig(object):
         return redirect(self.get_list_url())
 
     def change_view(self, request, nid, *args, **kwargs):
-        obj = self.model_class.objects.filter(pk = nid).first()
+        obj = self.model_class.objects.filter(pk=nid).first()
         if not obj:
             return redirect(self.get_list_url())
         model_form_class = self.get_model_form_class()
 
-        if request.method =='GET':
-            form = model_form_class(instance = obj)
-            return render(request,'change_view.html',{'form':form})
+        if request.method == 'GET':
+            form = model_form_class(instance=obj)
+            return render(request, 'change_view.html', {'form': form})
 
         else:
-            form = model_form_class(instance = obj,data = request.POST)
+            form = model_form_class(instance=obj, data=request.POST)
             if form.is_valid():
                 form.save()
+                print(123)
                 return redirect(self.get_list_url())
-            return render(request,'change_view.html')
 
+            return render(request, 'change_view.html', {'from': form})
 
 
 class StarkSite(object):

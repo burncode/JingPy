@@ -3,11 +3,21 @@ from django.conf.urls import url
 from django.forms import ModelForm
 from stark.service import router
 from app01 import models
+class UserInfoModelForm(ModelForm):
+    class Meta:
+        model = models.UserInfo
+        fields = '__all__'
+        error_messages = {
+            'name':{
+                'required':'用户名不能为空'
+            }
+        }
 
 
 class UserInfoConfig(router.StarkConfig):
-    list_display = ['id', 'name']
-
+    list_display = ['id', 'name','email']
+    show_add_btn = True
+    model_form_class = UserInfoModelForm
 
 router.site.register(models.UserInfo, UserInfoConfig)
 
@@ -15,16 +25,13 @@ router.site.register(models.UserInfo, UserInfoConfig)
 class RoleConfig(router.StarkConfig):
     list_display = ['id', 'name']
 
-
 router.site.register(models.Role, RoleConfig)  # StarkConfig(Role)
 
 
 class UserTypeConfig(router.StarkConfig):
     list_display = ['id', 'title']
 
-
 router.site.register(models.UserType, UserTypeConfig)  # StarkConfig(Role)
-
 
 
 
@@ -42,8 +49,6 @@ class HostModelForm(ModelForm):
             }
 
         }
-
-
 
 
 class HostConfig(router.StarkConfig):
@@ -77,7 +82,6 @@ class HostConfig(router.StarkConfig):
         else:
             self.model_class.objects.filter(pk=nid).delete()
             return redirect(self.get_list_url())
-
 
 router.site.register(models.Host,HostConfig)
 

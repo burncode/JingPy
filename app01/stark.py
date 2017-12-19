@@ -1,8 +1,9 @@
-from django.shortcuts import HttpResponse
+from django.shortcuts import HttpResponse,render,redirect
+from django.utils.safestring import mark_safe
 from django.conf.urls import url
-from django.forms import ModelForm
 from stark.service import router
 from app01 import models
+from django.forms import ModelForm
 class UserInfoModelForm(ModelForm):
     class Meta:
         model = models.UserInfo
@@ -13,25 +14,61 @@ class UserInfoModelForm(ModelForm):
             }
         }
 
-
 class UserInfoConfig(router.StarkConfig):
-    list_display = ['id', 'name','email']
+
+    list_display = ['id','name','email','password']
+
     show_add_btn = True
+
     model_form_class = UserInfoModelForm
 
-router.site.register(models.UserInfo, UserInfoConfig)
+    show_search_form = True
+    search_fields = ['name__contains', 'email__contains']
+
+
+    show_actions = True
+
+    def multi_del(self,request):
+        pk_list = request.POST.getlist('pk')
+        self.model_class.objects.filter(id__in=pk_list).delete()
+        # return HttpResponse('删除成功')
+        return redirect("http://www.baidu.com")
+    multi_del.short_desc = "批量删除"
+
+    def multi_init(self,request):
+        pk_list = request.POST.getlist('pk')
+        #self.model_class.objects.filter(id__in=pk_list).delete()
+        # return HttpResponse('删除成功')
+        #return redirect("http://www.baidu.com")
+    multi_init.short_desc = "初始化"
+
+    actions = [multi_del, multi_init]
+
+
+router.site.register(models.UserInfo,UserInfoConfig) # UserInfoConfig(UserInfo,)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 class RoleConfig(router.StarkConfig):
-    list_display = ['id', 'name']
 
-router.site.register(models.Role, RoleConfig)  # StarkConfig(Role)
-
-
-class UserTypeConfig(router.StarkConfig):
-    list_display = ['id', 'title']
-
-router.site.register(models.UserType, UserTypeConfig)  # StarkConfig(Role)
+    list_display = ['id','name']
+router.site.register(models.Role,RoleConfig) # StarkConfig(Role)
 
 
 
@@ -49,6 +86,7 @@ class HostModelForm(ModelForm):
             }
 
         }
+
 
 
 class HostConfig(router.StarkConfig):
@@ -83,5 +121,5 @@ class HostConfig(router.StarkConfig):
             self.model_class.objects.filter(pk=nid).delete()
             return redirect(self.get_list_url())
 
-router.site.register(models.Host,HostConfig)
 
+router.site.register(models.Host,HostConfig)

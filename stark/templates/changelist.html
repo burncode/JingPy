@@ -12,11 +12,37 @@
             background-color: #336699;
             color: white;
         }
+
+        .list-filter a {
+            display: inline-block;
+            padding: 3px 6px;
+            border: 1px solid #336699;
+            margin: 3px 0;
+        }
+
+        .list-filter a.active {
+            background-color: #336699;
+            color: white;
+        }
+
+        .form-group {
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
 <div class="container">
     <h1>列表页面</h1>
+    <div class="list-filter">
+        {% for filter_row in  cl.gen_comb_filter %}
+            <div>
+                {% for col in filter_row %}
+                    {{ col }}
+                {% endfor %}
+            </div>
+        {% endfor %}
+
+    </div>
     {% if cl.show_search_form %}
         <div class="form-group">
             <form method="get">
@@ -27,8 +53,6 @@
             </form>
         </div>
     {% endif %}
-
-
     <form method="post">
         {% csrf_token %}
         <div style="float: left">

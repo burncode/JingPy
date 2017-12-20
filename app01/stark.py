@@ -32,7 +32,7 @@ class UserInfoConfig(router.StarkConfig):
         pk_list = request.POST.getlist('pk')
         self.model_class.objects.filter(id__in=pk_list).delete()
         # return HttpResponse('删除成功')
-        return redirect("http://www.baidu.com")
+        return redirect(self.get_list_url())
     multi_del.short_desc = "批量删除"
 
     def multi_init(self,request):
@@ -46,24 +46,6 @@ class UserInfoConfig(router.StarkConfig):
 
 
 router.site.register(models.UserInfo,UserInfoConfig) # UserInfoConfig(UserInfo,)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 class RoleConfig(router.StarkConfig):
 

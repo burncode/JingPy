@@ -1,0 +1,80 @@
+from stark.service import router
+from . import models
+from django.shortcuts import redirect
+
+
+class RoleConfig(router.StarkConfig):
+    list_display = ['id', 'title']
+
+
+router.site.register(models.Role, RoleConfig)
+
+
+class DepartmentConfig(router.StarkConfig):
+    list_display = ['id', 'caption']
+
+
+router.site.register(models.Department, DepartmentConfig)
+
+
+class UserInfoConfig(router.StarkConfig):
+    show_add_btn = True
+
+    show_search_form = True
+    search_fields = ['name__contains', 'email__contains']
+
+    show_actions = True
+
+    def multi_del(self, request):
+        pk_list = request.POST.getlist('pk')
+        self.model_class.objects.filter(id__in=pk_list).delete()
+        # return HttpResponse('删除成功')
+        return redirect(self.get_list_url())
+
+    multi_del.short_desc = "批量删除"
+
+    def multi_init(self, request):
+        pk_list = request.POST.getlist('pk')
+        # self.model_class.objects.filter(id__in=pk_list).delete()
+        # return HttpResponse('删除成功')
+        # return redirect("http://www.baidu.com")
+
+    multi_init.short_desc = "初始化"
+
+    actions = [multi_del, multi_init]
+
+
+
+    def display_gender(self, obj=None, is_header=False):
+        if is_header:
+            return '性别'
+
+        # return obj.gender
+        return obj.get_gender_display()
+
+    def display_depart(self, obj=None, is_header=False):
+        if is_header:
+            return '部门'
+        return obj.depart.caption
+
+    def display_roles(self, obj=None, is_header=False):
+        if is_header:
+            return '角色'
+
+        html = []
+        role_list = obj.roles.all()
+        for role in role_list:
+            html.append(role.title)
+
+        return ",".join(html)
+
+    list_display = ['id', 'name', 'email', display_gender, display_depart, display_roles]
+
+    comb_filter = [
+        router.FilterOption('gender', is_choice=True),
+        router.FilterOption('depart', condition={'id__gt': 3}),
+        router.FilterOption('roles', True),
+    ]
+
+
+router.site.register(models.UserInfo, UserInfoConfig)

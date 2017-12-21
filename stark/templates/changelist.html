@@ -43,6 +43,7 @@
         {% endfor %}
 
     </div>
+<div>
     {% if cl.show_search_form %}
         <div class="form-group">
             <form method="get">
@@ -53,14 +54,15 @@
             </form>
         </div>
     {% endif %}
+</div>
     <form method="post">
         {% csrf_token %}
-        <div style="float: left">
+        <div style="float: left;margin-bottom: 0px">
             {% if cl.show_add_btn %}
                 <a class="btn btn-primary" href="{{ cl.add_url }}">添加</a>
             {% endif %}
         </div>
-        <div class="pull-right">
+        <div class="pull-right" style="margin-bottom: -15px">
             {% if cl.show_actions %}
                 <div class="form-group">
                     <select name="list_action" class="form-control" style="display:inline-block;width: 200px;">

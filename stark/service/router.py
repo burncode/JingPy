@@ -1,4 +1,5 @@
 import copy
+import json
 from django.conf.urls import url
 from django.shortcuts import HttpResponse, render, redirect
 from django.utils.safestring import mark_safe
@@ -8,6 +9,7 @@ from django.db.models import Q
 
 
 class FilterOption(object):
+    '''封装组合搜索的配置信息'''
     def __init__(self, field_name, multi=False, condition=None, is_choice=False):
         """
 
@@ -32,6 +34,7 @@ class FilterOption(object):
 
 
 class FilterRow(object):
+    '''可迭代对象，封装了组合搜索中的一行数据'''
     def __init__(self, option, data, request):
         self.data = data
         self.option = option
@@ -57,12 +60,10 @@ class FilterRow(object):
         for val in self.data:
             if self.option.is_choice:
                 pk, text = str(val[0]), val[1]
+
             else:
                 pk, text = str(val.pk), str(val)
-            # 当前URL？option.field_name
-            # 当前URL？gender=pk
-            # self.request.path_info # http://127.0.0.1:8005/arya/crm/customer/?gender=1&id=2
-            # self.request.GET['gender'] = 1 # &id=2gender=1
+                # print(text)
             if not self.option.multi:
                 # 单选
                 params[self.option.field_name] = pk
@@ -91,6 +92,7 @@ class FilterRow(object):
 
 
 class ChangeList(object):
+    '''将列表页面功能封装到此类中'''
     def __init__(self, config, queryset):
         self.config = config
 
@@ -197,6 +199,7 @@ class ChangeList(object):
 
 
 class StarkConfig(object):
+    '''处理增删改查的基类'''
     # 1. 定制列表页面显示的列
     def checkbox(self, obj=None, is_header=False):
         if is_header:
@@ -287,7 +290,6 @@ class StarkConfig(object):
         return self.show_actions
 
     actions = []
-
     def get_actions(self):
         result = []
         if self.actions:
@@ -397,14 +399,26 @@ class StarkConfig(object):
     def add_view(self, request, *args, **kwargs):
 
         model_form_class = self.get_model_form_class()
+        _popbackid = request.GET.get('_popbackid')
         if request.method == "GET":
             form = model_form_class()
             return render(request, 'add_view.html', {'form': form})
         else:
             form = model_form_class(request.POST)
+            # if form.is_valid():
+            #     form.save()
+            #     return redirect(self.get_list_url())
+            # return render(request, 'add_view.html', {'form': form})
             if form.is_valid():
-                form.save()
-                return redirect(self.get_list_url())
+                # 数据库中创建数据
+                new_obj = form.save()
+                if _popbackid:
+                    # 是popup请求
+                    # render一个页面，写自执行函数
+                    result = {'id':new_obj.pk, 'text':str(new_obj),'popbackid':_popbackid }
+                    return render(request,'popup_response.html',{'json_result':json.dumps(result,ensure_ascii=False)})
+                else:
+                    return redirect(self.get_list_url())
             return render(request, 'add_view.html', {'form': form})
 
     def change_view(self, request, nid, *args, **kwargs):
@@ -433,6 +447,8 @@ class StarkConfig(object):
 
 
 class StarkSite(object):
+
+    '''单例模式，用于保存model类和处理这个类增删改查的配置类的对象'''
     def __init__(self):
         self._registry = {}
 

@@ -1,3 +1,7 @@
+"""
+....
+
+"""
 import copy
 import json
 from django.conf.urls import url
@@ -9,20 +13,25 @@ from django.db.models import Q
 
 
 class FilterOption(object):
-    '''封装组合搜索的配置信息'''
-    def __init__(self, field_name, multi=False, condition=None, is_choice=False):
+    def __init__(self, field_name, multi=False, condition=None, is_choice=False, text_func_name=None,
+                 val_func_name=None):
         """
 
         :param field_name: 字段
         :param multi:  是否多选
         :param condition: 显示数据的筛选条件
         :param is_choice: 是否是choice
+        :param text_func_name: 组合搜索时，页面上生成显示的文本的函数
+        :param val_func_name: 组合搜索时，页面上生成的a标签中的值的函数
         """
         self.field_name = field_name
         self.multi = multi
         self.is_choice = is_choice
 
         self.condition = condition
+
+        self.text_func_name = text_func_name
+        self.val_func_name = val_func_name
 
     def get_queryset(self, _field):
         if self.condition:
@@ -34,10 +43,9 @@ class FilterOption(object):
 
 
 class FilterRow(object):
-    '''可迭代对象，封装了组合搜索中的一行数据'''
     def __init__(self, option, data, request):
         self.data = data
-        self.option = option
+        self.option = option  # text_func_name="xxxxx",val_func_name="comb_text"
         # request.GET
         self.request = request
 
@@ -58,12 +66,16 @@ class FilterRow(object):
             yield mark_safe('<a class="active" href="{0}">全部</a>'.format(url))
         # ( (1,男),(2,女)  )
         for val in self.data:
+
             if self.option.is_choice:
                 pk, text = str(val[0]), val[1]
-
             else:
-                pk, text = str(val.pk), str(val)
-                # print(text)
+                text = self.option.text_func_name(val) if self.option.text_func_name else str(val)
+                pk = str(self.option.val_func_name(val)) if self.option.val_func_name else str(val.pk)
+            # 当前URL？option.field_name
+            # 当前URL？gender=pk
+            # self.request.path_info # http://127.0.0.1:8005/arya/crm/customer/?gender=1&id=2
+            # self.request.GET['gender'] = 1 # &id=2gender=1
             if not self.option.multi:
                 # 单选
                 params[self.option.field_name] = pk
@@ -92,7 +104,6 @@ class FilterRow(object):
 
 
 class ChangeList(object):
-    '''将列表页面功能封装到此类中'''
     def __init__(self, config, queryset):
         self.config = config
 
@@ -104,6 +115,9 @@ class ChangeList(object):
         self.actions = config.get_actions()
         self.show_actions = config.get_show_actions()
         self.comb_filter = config.get_comb_filter()
+        self.show_comb_filter = config.get_show_comb_filter()
+
+        self.edit_link = config.get_edit_link()
 
         # 搜索用
         self.show_search_form = config.get_show_search_form()
@@ -112,12 +126,16 @@ class ChangeList(object):
         from page.pager import Pagination
         current_page = self.request.GET.get('page', 1)
         total_count = queryset.count()
-        page_obj = Pagination(current_page, total_count, self.request.path_info, self.request.GET, per_page_count=5)
+        page_obj = Pagination(current_page, total_count, self.request.path_info, self.request.GET)
         self.page_obj = page_obj
 
         self.data_list = queryset[page_obj.start:page_obj.end]
 
     def modify_actions(self):
+        """
+        用于Action中显示数据的文本和value属性值
+        :return: 
+        """
         result = []
         for func in self.actions:
             temp = {'name': func.__name__, 'text': func.short_desc}
@@ -144,20 +162,23 @@ class ChangeList(object):
         return result
 
     def body_list(self):
-        # 处理表中的数据
-        # [ UserInfoObj,UserInfoObj,UserInfoObj,UserInfoObj,]
-        # [ UserInfo(id=1,name='alex',age=18),UserInfo(id=2,name='alex2',age=181),]
+        """
+        列表页面，数据表内容中显示每一行数据。
+        :return: 
+        """
         data_list = self.data_list
         new_data_list = []
         for row in data_list:
-            # row是 UserInfo(id=2,name='alex2',age=181)
-            # row.id,row.name,row.age
             temp = []
             for field_name in self.list_display:
                 if isinstance(field_name, str):
-                    val = getattr(row, field_name)  # # 2 alex2
+                    val = getattr(row, field_name)
                 else:
                     val = field_name(self.config, row)
+                # 用于定制编辑列
+                if field_name in self.edit_link:
+                    val = self.edit_link_tag(row.pk, val)
+
                 temp.append(val)
             new_data_list.append(temp)
 
@@ -197,9 +218,25 @@ class ChangeList(object):
             # 可迭代对象
             yield row
 
+    def edit_link_tag(self, pk, text):
+        query_str = self.request.GET.urlencode()  # page=2&nid=1
+        params = QueryDict(mutable=True)
+        params[self.config._query_param_key] = query_str
+        return mark_safe('<a href="%s?%s">%s</a>' % (
+        self.config.get_change_url(pk), params.urlencode(), text,))  # /stark/app01/userinfo/
+
 
 class StarkConfig(object):
-    '''处理增删改查的基类'''
+    """
+    用于处理Stark组件中增删改查配置的基类，以后对于每个类的配置需要继承该类，如：
+    class UserInfoConfig(StarkConfig):
+        list_display = ['id','name']
+
+        ....
+
+    v1.site.register(models.UserInfo,UserInfoConfig)
+    """
+
     # 1. 定制列表页面显示的列
     def checkbox(self, obj=None, is_header=False):
         if is_header:
@@ -230,10 +267,18 @@ class StarkConfig(object):
         data = []
         if self.list_display:
             data.extend(self.list_display)
-            data.append(StarkConfig.edit)
+            # data.append(StarkConfig.edit)
             data.append(StarkConfig.delete)
             data.insert(0, StarkConfig.checkbox)
         return data
+
+    edit_link = []
+
+    def get_edit_link(self):
+        result = []
+        if self.edit_link:
+            result.extend(self.edit_link)
+        return result
 
     # 2. 是否显示添加按钮
     show_add_btn = True
@@ -290,6 +335,7 @@ class StarkConfig(object):
         return self.show_actions
 
     actions = []
+
     def get_actions(self):
         result = []
         if self.actions:
@@ -304,6 +350,11 @@ class StarkConfig(object):
         if self.comb_filter:
             result.extend(self.comb_filter)
         return result
+
+    show_comb_filter = False
+
+    def get_show_comb_filter(self):
+        return self.show_comb_filter
 
     def __init__(self, model_class, site):
         self.model_class = model_class
@@ -390,8 +441,9 @@ class StarkConfig(object):
 
             if flag:
                 comb_condition["%s__in" % key] = value_list
-
+        print(comb_condition)
         queryset = self.model_class.objects.filter(self.get_search_condition()).filter(**comb_condition).distinct()
+        print(queryset.query)
 
         cl = ChangeList(self, queryset)
         return render(request, 'changelist.html', {'cl': cl})
@@ -405,18 +457,15 @@ class StarkConfig(object):
             return render(request, 'add_view.html', {'form': form})
         else:
             form = model_form_class(request.POST)
-            # if form.is_valid():
-            #     form.save()
-            #     return redirect(self.get_list_url())
-            # return render(request, 'add_view.html', {'form': form})
             if form.is_valid():
                 # 数据库中创建数据
                 new_obj = form.save()
                 if _popbackid:
                     # 是popup请求
                     # render一个页面，写自执行函数
-                    result = {'id':new_obj.pk, 'text':str(new_obj),'popbackid':_popbackid }
-                    return render(request,'popup_response.html',{'json_result':json.dumps(result,ensure_ascii=False)})
+                    result = {'id': new_obj.pk, 'text': str(new_obj), 'popbackid': _popbackid}
+                    return render(request, 'popup_response.html',
+                                  {'json_result': json.dumps(result, ensure_ascii=False)})
                 else:
                     return redirect(self.get_list_url())
             return render(request, 'add_view.html', {'form': form})
@@ -447,8 +496,6 @@ class StarkConfig(object):
 
 
 class StarkSite(object):
-
-    '''单例模式，用于保存model类和处理这个类增删改查的配置类的对象'''
     def __init__(self):
         self._registry = {}
 
